@@ -1,11 +1,11 @@
-module uart_rx #(
+module getc #(
 	parameter CLK = 50000000,
 	parameter BAUD_RATE = 115200,
 	parameter BITS = 8
 ) (
 	input                   clk,
 	input                   rx,
-	output logic            finish,
+	output logic            oe,
 	output logic [BITS-1:0] data,
 );
 	localparam CLK_DIVISOR = CLK / BAUD_RATE;
@@ -16,7 +16,7 @@ module uart_rx #(
 	enum {IDLE, START, TRANSMISSION, STOP} state;
 
 	initial begin
-		finish = 1'b0;
+		oe = 1'b0;
 		data = 0;
 		clkd = 0;
 		index = 0;
@@ -28,7 +28,7 @@ module uart_rx #(
 		IDLE: begin
 			clkd <= 0;
 			index <= 0;
-			finish <= 1'b0;
+			oe <= 1'b0;
 
       // we wait in side the IDLE state until we get the first start bit
       // meaning rx must be high all the time untill driven low;
@@ -72,7 +72,7 @@ module uart_rx #(
 			end
 		end
 		STOP: begin
-			finish <= 1'b1;
+			oe <= 1'b1;
 
 			if (clkd < CLK_DIVISOR-1) begin
 				clkd <= clkd + 1;

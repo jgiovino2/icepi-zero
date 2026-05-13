@@ -1,0 +1,9 @@
+all: banner.mem
+
+banner.mem: banner.txt
+	hexdump -v -e '1/1 "%02X\n"' $+ > $@
+	sed -i 's/0A/0A\n0D/g' $@
+
+clean:
+	-rm banner.mem
+
