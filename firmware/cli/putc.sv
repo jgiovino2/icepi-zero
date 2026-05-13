@@ -4,7 +4,7 @@ module putc #(
 	parameter BITS = 8
 ) (
 	input                   clk,
-	input                   go,
+	input                   en,
 	input        [BITS-1:0] data,
   output                  oe,
 	output logic            tx

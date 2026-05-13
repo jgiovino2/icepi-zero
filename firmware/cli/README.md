@@ -2,11 +2,11 @@ This utility is meant to be a minimal example for
 externally inspecting and setting registers at runtime  
 via the USB uart interface.  
   
-The user interaction is lacked down and the available  
+The user interaction is locked down and the available  
 registers are generated at build time.  
   
 This overly simplistic interraction minimizes the size  
-of teh state machine on teh FPGA while allowing user  
+of the state machine on the FPGA while allowing user  
 flexibility in control.  
   
 Every user interation consists of 2 key strokes.  

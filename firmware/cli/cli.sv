@@ -13,13 +13,19 @@ module cli #(
 	output logic [7:0]      data_out
 );
 
-  enum {WAIT, DUMP, ENTRY, READ_1, READ_2, SEND_COUNT, SEND_DATA, SEND_CR, SEND_LF} state;
+  enum {WAIT, DUMP, ENTRY, READ_1, READ_2, SEND_COUNT, PUT_SP, ECHO_CHAR, SEND_CR, SEND_LF} state;
 
   logic [31:0] delay;
   logic [31:0] local_count;
   logic sent_latch; // treat sent as a single clock pulse trigger
 
   logic [7:0] string_rom [0:BANNER_LENGTH];
+
+
+  logic [15:0] decimation;
+
+
+
 
 	initial begin
     $readmemh("banner.mem", string_rom);
@@ -43,10 +49,8 @@ module cli #(
     WAIT: begin
       // wait 3 seconds
       if (local_count > 150000000) begin
-
         data_out <= string_rom[0];
         local_count <= 1;
-
         send <= 1;
         sent_latch <= 0;
         state <= DUMP;
@@ -78,39 +82,59 @@ module cli #(
 
 		READ_1: begin
       if (rx_finish == 1) begin
-        data_out <= 8'b00100000 + local_count[4:0]; // rep as ascii
-        sent_latch <= 0;
+        data_out <= 8'b01000000 + local_count[5:0]; // rep as ascii
         send <= 1;
         state <= SEND_COUNT;
       end
     end
 		SEND_COUNT: begin
       if (sent_latch) begin
-          data_out <= data_in;
           sent_latch <= 0;
+          data_out <= 8'b00100000;  // SP
           send <= 1;
-					state <= SEND_DATA;
+					state <= PUT_SP;
       end
 		end
-		SEND_DATA: begin
+		PUT_SP: begin
       if (sent_latch) begin
-          data_out <= 8'b00001101;  // CR
           sent_latch <= 0;
+          data_out <= data_in;
+          send <= 1;
+					state <= ECHO_CHAR;
+      end
+    end
+    ECHO_CHAR: begin
+      if (sent_latch) begin
+          sent_latch <= 0;
+          data_out <= 8'b00001101;  // CR
           send <= 1;
 					state <= SEND_CR;
 			end
     end
 		SEND_CR: begin
       if (sent_latch) begin
-          data_out <= 8'b00001010;  // LF 
           sent_latch <= 0;
+          data_out <= 8'b00001010;  // LF 
           send <= 1;
 					state <= SEND_LF;
 			end
     end
 		SEND_LF: begin
       if (sent_latch) begin
-					state <= ENTRY;
+        sent_latch <= 0;
+        case (data_in)
+          8'b01010111 : begin // W wait
+            state <= WAIT; 
+          end
+          8'b01000010 : begin // B banner
+            data_out <= string_rom[0];
+            local_count <= 1;
+            send <= 1;
+            state <= DUMP;
+          end
+          default : 
+					  state <= ENTRY;
+        endcase
 			end
     end
 		endcase
