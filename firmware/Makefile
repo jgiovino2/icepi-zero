@@ -4,7 +4,7 @@ OUTPUT := bitstream
 PACKAGE := CABGA256
 FPGA_SIZE ?= 25k
 
-all: debug
+all: banner.mem debug
 
 %.json: $(VERILOG_SOURCES)
 	rm -f $(OUTPUT).bit $(OUTPUT).config $(OUTPUT).json
@@ -40,6 +40,11 @@ help:
 	echo "- clean: delete all temparary files"
 
 clean:
-	rm -f $(OUTPUT).bit $(OUTPUT).config $(OUTPUT).json
+	-rm -f $(OUTPUT).bit $(OUTPUT).config $(OUTPUT).json banner.mem
+
+.PHONY: banner.mem
+banner.mem:
+	if [ -f banner.txt ]; then hexdump -v -e '1/1 "%02X\n"' banner.txt > banner.mem; sed -i 's/0A/0A\n0D/g' banner.mem; fi
+
 
 .PHONY: build clean install
