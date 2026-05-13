@@ -5,14 +5,13 @@ module top(
 	output       usb_tx,
 	output [2:0] led
 );
-	logic       rx_finish;
-	logic       send;
-	logic       sent;
 	logic [7:0] data_in;
 	logic [7:0] data_out;
 
 
-
+  // added notion of output enable pin and enable pin to conform to 
+  // HW wiring of physical device
+  // both virtual pins are edge triggers or single clock pulses
   logic putc_en;
   logic putc_oe;
   putc TX (clk, putc_en, data_out, putc_oe, usb_tx);
@@ -25,7 +24,6 @@ module top(
   //logic [7:0] puts_len;
   //logic [
   //puts PUTS (clock, 
-
 
   cli CLI (clk, getc_oe, data_in, putc_oe, putc_en, data_out);
 
