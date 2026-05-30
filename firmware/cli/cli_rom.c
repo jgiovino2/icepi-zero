@@ -11,6 +11,8 @@ int main()
   CliRom_st cli_rom;
   int record;
 
+  bzero((void *)&cli_rom, sizeof(CliRom_st));
+
   for (record=0; record < 0x20; record++)
   {
     sprintf(cli_rom.records[record].command_str, "%02d - reserved", record);
@@ -91,14 +93,15 @@ int main()
 
 
 
-  //for (int i=0; i< cli_rom.banner_len; i++)
-    //fprintf(stdout, "%02x\n", cli_rom.banner[i]);
-    //
+
+  // write the hex bin ROM fooprint to file
   uint8_t *val = (uint8_t *)&cli_rom;
   for (int i=0; i < sizeof(CliRom_st); i++)
     fprintf(stdout, "%02x\n", val[i]);
 
 
+
+  // generate a system verilog header for accessing ROM footprint
 
   FILE *svh = fopen("cli_rom.svh", "w");
 

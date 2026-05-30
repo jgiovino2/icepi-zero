@@ -14,30 +14,35 @@ module cli #(
 	output logic [7:0]      data_out
 );
 
-  enum {WAIT, PUTS, ENTRY, READ_1, READ_2, SEND_COUNT, PUT_SP, ECHO_CHAR, SEND_CR, SEND_LF} state;
+  enum {WAIT, PUTS, ENTRY, READ_1, READ_2, SEND_COUNT, PUT_SP, ECHO_CHAR, SEND_CR, SEND_LF, HELP} state;
 
-  logic [31:0] delay;
-  logic [31:0] local_count;
+  logic [31:0] wait_count;
+  logic [31:0] read_count;
   logic sent_latch; // treat sent as a single clock pulse trigger
 
-  logic [7:0] string_rom [0:`CLI_ROM_LEN];
+  logic [7:0] cli_rom [0:`CLI_ROM_LEN];
 
-
-  logic [15:0] decimation;
 
   logic [31:0] str_pos;
   logic [31:0] str_len;
+  logic [31:0] str_count;
+
+  logic help;
+  logic [31:0] help_count;
 
 
 
 	initial begin
-    //$readmemh("banner.mem", string_rom);
-    $readmemh("cli_rom.mem", string_rom);
+    //$readmemh("banner.mem", cli_rom);
+    $readmemh("cli_rom.mem", cli_rom);
 		send = 0;
-    local_count = 0;
+    str_count = 0;
+    wait_count = 0;
+    read_count = 0;
     state = WAIT;
     sent_latch = 0;
-    delay = 0;
+    help = 0;
+    help_count = 0;
 	end
 
 	always @(posedge clk) begin
@@ -52,43 +57,60 @@ module cli #(
 
     WAIT: begin
       // wait 3 seconds
-      if (local_count > 150000000) begin
+      if (wait_count > 150000000) begin
+        wait_count <= 0;
         str_pos <= `BANNER_POS;
         str_len <= `BANNER_LEN;
-        data_out <= string_rom[0 + `BANNER_POS];
-        local_count <= 1;
+        str_count <= 0;
         send <= 1;
         sent_latch <= 0;
         state <= PUTS;
       end else begin
-        local_count <= local_count+1;
+        wait_count <= wait_count+1;
       end
     end
 
     PUTS: begin
        if (sent_latch) begin
           sent_latch <= 0;
-
-          data_out <= string_rom[local_count + str_pos];
+          data_out <= cli_rom[str_pos];
+          str_pos <= str_pos + 1'b1;
           send <= 1;
 
-          if (local_count > str_len) begin
-            local_count <= 0;
-            state <= READ_1;
+          if (str_count > str_len) begin
+            str_count <= 0;
+            state <= ENTRY;
           end else begin
-            local_count <= local_count + 1;
+            str_count <= str_count + 1'b1;
           end
        end
     end
 
 		ENTRY: begin
-        local_count <= local_count + 1;
+      if (help) begin
+        state <= HELP;
+      end else begin
+        read_count <= read_count + 1;
 				state <= READ_1;
+      end
 		end
+
+    HELP: begin
+      if (help_count == 'h80) begin
+        state <= ENTRY;
+        help <= 0;
+      end
+      help_count <= help_count + 1'b1;
+      str_pos <= help_count * `RECORD_LEN;
+      str_len <= 16;
+      str_count <= 0;
+      send <= 1;
+      state <= PUTS;
+    end
 
 		READ_1: begin
       if (rx_finish == 1) begin
-        data_out <= 8'b01000000 + local_count[5:0]; // rep as ascii
+        data_out <= 8'b01000000 + read_count[5:0]; // rep as ascii
         send <= 1;
         state <= SEND_COUNT;
       end
@@ -129,21 +151,38 @@ module cli #(
       if (sent_latch) begin
         sent_latch <= 0;
         case (data_in)
-          8'b01010111 : begin // W wait
+
+          "H" : begin // H help
+            help <= 1;
+            state <= HELP; 
+            help_count <= 0;
+          end
+
+          8'h3F : begin // ? help
+            help <= 1;
+            state <= HELP; 
+            help_count <= 0;
+          end
+
+          //8'b01010111 : begin // W wait
+          "W" : begin // wait
             state <= WAIT; 
           end
-          8'b01000010 : begin // B banner
+
+          //8'b01000010 : begin // B banner
+          "B" : begin // banner
             str_pos = `BANNER_POS;
             str_len = `BANNER_LEN;
-            local_count <= 0;
+            str_count <= 0;
             send <= 1;
             state <= PUTS;
           end
+
           default : begin
             if (data_in < 8'h80) begin
               str_pos <= data_in * `RECORD_LEN;
               str_len <= 16;
-              local_count <= 0;
+              str_count <= 0;
               send <= 1;
               state <= PUTS;
             end else begin
