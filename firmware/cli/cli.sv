@@ -1,3 +1,4 @@
+`include "cli_rom.svh"
 module cli #(
   parameter CLK = 50000000,
 	parameter BAUD_RATE = 115200,
@@ -13,22 +14,25 @@ module cli #(
 	output logic [7:0]      data_out
 );
 
-  enum {WAIT, DUMP, ENTRY, READ_1, READ_2, SEND_COUNT, PUT_SP, ECHO_CHAR, SEND_CR, SEND_LF} state;
+  enum {WAIT, PUTS, ENTRY, READ_1, READ_2, SEND_COUNT, PUT_SP, ECHO_CHAR, SEND_CR, SEND_LF} state;
 
   logic [31:0] delay;
   logic [31:0] local_count;
   logic sent_latch; // treat sent as a single clock pulse trigger
 
-  logic [7:0] string_rom [0:BANNER_LENGTH];
+  logic [7:0] string_rom [0:`CLI_ROM_LEN];
 
 
   logic [15:0] decimation;
 
+  logic [31:0] str_pos;
+  logic [31:0] str_len;
 
 
 
 	initial begin
-    $readmemh("banner.mem", string_rom);
+    //$readmemh("banner.mem", string_rom);
+    $readmemh("cli_rom.mem", string_rom);
 		send = 0;
     local_count = 0;
     state = WAIT;
@@ -49,24 +53,26 @@ module cli #(
     WAIT: begin
       // wait 3 seconds
       if (local_count > 150000000) begin
-        data_out <= string_rom[0];
+        str_pos <= `BANNER_POS;
+        str_len <= `BANNER_LEN;
+        data_out <= string_rom[0 + `BANNER_POS];
         local_count <= 1;
         send <= 1;
         sent_latch <= 0;
-        state <= DUMP;
+        state <= PUTS;
       end else begin
         local_count <= local_count+1;
       end
     end
 
-    DUMP: begin
+    PUTS: begin
        if (sent_latch) begin
           sent_latch <= 0;
 
-          data_out <= string_rom[local_count];
+          data_out <= string_rom[local_count + str_pos];
           send <= 1;
 
-          if (local_count > BANNER_LENGTH) begin
+          if (local_count > str_len) begin
             local_count <= 0;
             state <= READ_1;
           end else begin
@@ -127,13 +133,23 @@ module cli #(
             state <= WAIT; 
           end
           8'b01000010 : begin // B banner
-            data_out <= string_rom[0];
-            local_count <= 1;
+            str_pos = `BANNER_POS;
+            str_len = `BANNER_LEN;
+            local_count <= 0;
             send <= 1;
-            state <= DUMP;
+            state <= PUTS;
           end
-          default : 
-					  state <= ENTRY;
+          default : begin
+            if (data_in < 8'h80) begin
+              str_pos <= data_in * `RECORD_LEN;
+              str_len <= 16;
+              local_count <= 0;
+              send <= 1;
+              state <= PUTS;
+            end else begin
+              state <= ENTRY;
+            end
+          end
         endcase
 			end
     end

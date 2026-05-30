@@ -1,9 +1,15 @@
-all: banner.mem
+all: banner.mem cli_rom.mem
 
 banner.mem: banner.txt
 	hexdump -v -e '1/1 "%02X\n"' $+ > $@
 	sed -i 's/0A/0A\n0D/g' $@
 
+cli_rom.mem: cli_rom
+	./cli_rom > cli_rom.mem
+
+cli_rom: cli_rom.c cli_rom.h
+	gcc -Wall cli_rom.c -o cli_rom
+
 clean:
-	-rm banner.mem
+	-rm banner.mem cli_rom.mem cli_rom.svh cli_rom
 
