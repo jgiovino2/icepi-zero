@@ -15,6 +15,7 @@ module cli #(
 );
 
   enum {WAIT, PUTS, ENTRY, READ_1, READ_2, SEND_COUNT, PUT_SP, ECHO_CHAR, SEND_CR, SEND_LF, HELP} state;
+  enum {PROMPT_MODE, HELP_MODE, ENTRY_MODE} mode;
 
   logic [31:0] wait_count;
   logic [31:0] read_count;
@@ -73,15 +74,23 @@ module cli #(
     PUTS: begin
        if (sent_latch) begin
           sent_latch <= 0;
-          data_out <= cli_rom[str_pos];
-          str_pos <= str_pos + 1'b1;
-          send <= 1;
 
-          if (str_count > str_len) begin
+          if (str_count < str_len) begin
+            data_out <= cli_rom[str_pos];
+            str_pos <= str_pos + 1'b1;
+            str_count <= str_count + 1'b1;
+            send <= 1;
+          end else if (str_count == str_len) begin
+            data_out <= 8'b00001101;  // CR
+            str_count <= str_count + 1'b1;
+            send <= 1;
+          end else if (str_count == (str_len+1)) begin
+            data_out <= 8'b00001010;  // LF 
+            str_count <= str_count + 1'b1;
+            send <= 1;
+          end else begin
             str_count <= 0;
             state <= ENTRY;
-          end else begin
-            str_count <= str_count + 1'b1;
           end
        end
     end
@@ -89,6 +98,7 @@ module cli #(
 		ENTRY: begin
       if (help) begin
         state <= HELP;
+        str_pos <= help_count * `RECORD_LEN;
       end else begin
         read_count <= read_count + 1;
 				state <= READ_1;
@@ -96,16 +106,22 @@ module cli #(
 		end
 
     HELP: begin
-      if (help_count == 'h80) begin
+      if (help_count == 'h7f) begin
         state <= ENTRY;
         help <= 0;
       end
+
       help_count <= help_count + 1'b1;
-      str_pos <= help_count * `RECORD_LEN;
-      str_len <= 16;
-      str_count <= 0;
-      send <= 1;
-      state <= PUTS;
+
+      if (cli_rom[str_pos] != " ") begin
+        str_len <= 24;
+        str_count <= 0;
+        send <= 1;
+        state <= PUTS;
+      end else begin
+        //str_pos <= help_count * `RECORD_LEN; // precalculated
+        state = ENTRY;
+      end
     end
 
 		READ_1: begin
@@ -156,12 +172,14 @@ module cli #(
             help <= 1;
             state <= HELP; 
             help_count <= 0;
+            str_pos <= 0;
           end
 
           8'h3F : begin // ? help
             help <= 1;
             state <= HELP; 
             help_count <= 0;
+            str_pos <= 0;
           end
 
           //8'b01010111 : begin // W wait
@@ -173,6 +191,14 @@ module cli #(
           "B" : begin // banner
             str_pos = `BANNER_POS;
             str_len = `BANNER_LEN;
+            str_count <= 0;
+            send <= 1;
+            state <= PUTS;
+          end
+
+          "T" : begin // time
+            str_pos = `BUILD_TIME_POS;
+            str_len = `BUILD_TIME_LEN;
             str_count <= 0;
             send <= 1;
             state <= PUTS;

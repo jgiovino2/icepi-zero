@@ -10,7 +10,7 @@ typedef struct __attribute__((packed))
   // value and index into this record table
   union {
     uint8_t command_key;
-    char command_str[16];
+    char command_str[24];
   };
 
   uint16_t default_idx;
@@ -27,6 +27,8 @@ typedef struct __attribute__((packed))
   CliRecord_st records[0x80];  // ascii 0x20 to 0x7f ; 0x0-0x1f reserved
   char banner[2048];
   uint32_t banner_len;
+  char build_time[32];
+  char prompt[32];
   union {
     char formatted_value[8];
     uint64_t long_value;

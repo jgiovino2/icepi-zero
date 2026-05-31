@@ -3,8 +3,10 @@
 #include <unistd.h>
 #include <inttypes.h>
 #include <string.h>
+#include <time.h>
 
 #include "cli_rom.h"
+
 int main()
 {
   // setup initial rom
@@ -15,7 +17,8 @@ int main()
 
   for (record=0; record < 0x20; record++)
   {
-    sprintf(cli_rom.records[record].command_str, "%02d - reserved", record);
+    sprintf(cli_rom.records[record].command_str, " %02d - reserved           ", record);
+
     cli_rom.records[record].default_idx = 0;
     cli_rom.records[record].start_idx = 0;
     cli_rom.records[record].value_idx = 0;
@@ -24,7 +27,7 @@ int main()
 
   for (; record < 0x80; record++)
   {
-    sprintf(cli_rom.records[record].command_str, " %c - unused", record);
+    sprintf(cli_rom.records[record].command_str, " %c - unused             ", record);
     cli_rom.records[record].default_idx = 0;
     cli_rom.records[record].start_idx = 0;
     cli_rom.records[record].value_idx = 0;
@@ -93,6 +96,31 @@ int main()
 
 
 
+  // BUILD time
+  {
+    char zulu_time[25];
+    time_t now;
+    struct tm *gmt;
+
+    // Get current system time
+    time(&now);
+
+    // Convert to UTC/GMT
+    gmt = gmtime(&now);
+
+    // Format into ISO 8601 Zulu format (YYYY-MM-DDTHH:MM:SSZ)
+    strftime(zulu_time, sizeof(zulu_time), "%Y-%m-%dT%H:%M:%SZ", gmt);
+
+    // Print the result
+    fprintf(stderr, "Zulu Time: %s\n", zulu_time);
+
+    strcpy(cli_rom.build_time, zulu_time);
+  }
+
+
+  // PROMPT
+  sprintf(cli_rom.prompt, "dP_GPSDO> ");
+
 
   // write the hex bin ROM fooprint to file
   uint8_t *val = (uint8_t *)&cli_rom;
@@ -111,7 +139,11 @@ int main()
   fprintf(svh, "`define RECORD_LEN %lu\n", sizeof(CliRecord_st));
   fprintf(svh, "`define RECORD_POS %lu\n", (uint64_t) cli_rom.records - (uint64_t)&cli_rom);
   fprintf(svh, "`define BANNER_POS %lu\n", (uint64_t) cli_rom.banner - (uint64_t)&cli_rom);
-  fprintf(svh, "`define BANNER_LEN_POS %lu\n", (uint64_t) &cli_rom.banner_len - (uint64_t)&cli_rom);
+  fprintf(svh, "`define BANNER_LEN %lu\n", (uint64_t) &cli_rom.banner_len - (uint64_t)&cli_rom);
+  fprintf(svh, "`define PROMPT_POS %lu\n", (uint64_t) cli_rom.prompt - (uint64_t)&cli_rom);
+  fprintf(svh, "`define PROMPT_LEN %lu\n", strlen(cli_rom.prompt));
+  fprintf(svh, "`define BUILD_TIME_POS %lu\n", (uint64_t) cli_rom.build_time - (uint64_t)&cli_rom);
+  fprintf(svh, "`define BUILD_TIME_LEN %lu\n", strlen(cli_rom.build_time));
   fprintf(svh, "`define BANNER_LEN %u\n", cli_rom.banner_len);
   fprintf(svh, "`define FORMATTED_POS %lu\n", (uint64_t) &cli_rom.formatted_value - (uint64_t)&cli_rom);
   fprintf(svh, "`define REGISTERS_POS %lu\n", (uint64_t) cli_rom.register_values - (uint64_t)&cli_rom);
