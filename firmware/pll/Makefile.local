@@ -1,0 +1,8 @@
+all: gpsdo_pll.sv
+
+gpsdo_pll.sv: gpsdo_pll.sh
+	OUT_MHZ=200 ./gpsdo_pll.sh
+
+clean:
+	rm gpsdo_pll.sv
+
